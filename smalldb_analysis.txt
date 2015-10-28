@@ -1,0 +1,292 @@
+-- "Products Alphabetical"
+SELECT   products.name, 
+         sales.price 
+FROM     products, 
+         sales 
+WHERE    sales.pid = products.id 
+GROUP BY sales.price, 
+         products.name 
+ORDER BY name limit 10
+OFFSET (0 + (10 * 0));
+
+Execution time: ~30 ms
+
+CREATE INDEX products_id ON products(id);
+No benefit.
+
+CREATE INDEX sales_pid ON sales(pid);
+No benefit.
+
+-- "Customer Header Alphabetical"
+SELECT   users.name, 
+         SUM(sales.quantity * sales.price) AS sold 
+FROM     users, 
+         sales, 
+         products 
+WHERE    sales.uid = users.id 
+AND      sales.pid = products.id 
+GROUP BY users.name, 
+         users.id 
+ORDER BY users.name 
+LIMIT    20 offset   (0 + (20 * 0));
+
+Execution time: ~65 ms
+
+CREATE INDEX products_id ON products(id);
+No benefit.
+
+CREATE INDEX sales_pid ON sales(pid);
+No benefit.
+
+CREATE INDEX sales_uid ON sales(uid);
+No benefit.
+
+CREATE INDEX users_id ON users(id);
+No benefit.
+
+-- "Customer Cells Alphabetical"
+SELECT   usersale.name, 
+         usersale.id, 
+         prodsale.name, 
+         prodsale.id, 
+         SUM(sales.quantity * sales.price) AS total 
+FROM     ( 
+                  SELECT   id, 
+                           name 
+                  FROM     users 
+                  ORDER BY name 
+                  LIMIT    20 offset   (0 + (20 * 0))) usersale, 
+         ( 
+                  SELECT   id, 
+                           name 
+                  FROM     products 
+                  ORDER BY name 
+                  LIMIT    10 offset   (0 + (10 * 0))) prodsale, sales 
+WHERE    sales.pid = prodsale.id 
+AND      sales.uid = usersale.id 
+GROUP BY usersale.name, 
+         usersale.id, 
+         prodsale.name, 
+         prodsale.id 
+ORDER BY usersale.name, 
+         prodsale.name;
+
+Execution time: ~10 ms
+
+CREATE INDEX sales_uid ON sales(uid);
+Execution time: ~1 ms
+
+-- "States Header Alphabetical"
+SELECT   states.name, 
+         states.id, 
+         SUM(sales.quantity * sales.price) AS sold 
+FROM     states, 
+         users, 
+         sales, 
+         products 
+WHERE    sales.pid = products.id 
+AND      ( 
+                  sales.uid = users.id 
+         AND      users.state = states.id) 
+GROUP BY states.name, 
+         states.id 
+ORDER BY states.name 
+LIMIT    20 offset   (0 + (20 * 0));
+
+Execution time: 60 ms
+
+CREATE INDEX products_id ON products(id);
+No benefit.
+
+CREATE INDEX sales_pid ON sales(pid);
+No benefit.
+
+-- "States Cells Alphabetical"
+SELECT   statesale.name, 
+         statesale.id, 
+         prodsale.name, 
+         users.state, 
+         SUM(sales.quantity * sales.price) 
+FROM     ( 
+                  SELECT   id, 
+                           name 
+                  FROM     products 
+                  ORDER BY name 
+                  LIMIT    10 offset (0 + (10 * 0))) prodsale, 
+         ( 
+                  SELECT   id, 
+                           name 
+                  FROM     states 
+                  ORDER BY name 
+                  LIMIT    20 offset (0 + (20 * 0))) statesale, users, sales 
+WHERE    sales.pid = prodsale.id 
+AND      (sales.uid = users.id AND users.state = statesale.id) 
+GROUP BY statesale.name, 
+         statesale.id, 
+         users.state, 
+         prodsale.name 
+ORDER BY statesale.name, 
+         prodsale.name;
+
+Execution time: ~13 ms
+
+CREATE INDEX sales_uid ON sales(uid);
+No benefit.
+
+CREATE INDEX state_name ON states(name);
+No benefit.
+
+-- "Products TopK"
+SELECT   products.name, 
+         SUM(sales.price * sales.quantity) AS sold 
+FROM     sales, 
+         products 
+WHERE    products.id = sales.pid 
+GROUP BY products.name 
+ORDER BY sold DESC, 
+         products.name 
+LIMIT    10 offset   (0 + (10 * 0));
+
+Execution time: ~37 ms
+
+CREATE INDEX sales_pid ON sales(pid);
+No benefit.
+
+CREATE INDEX products_id ON products(id);
+No benefit.
+
+-- "Customer Header TopK"
+SELECT   users.name, 
+         SUM(sales.quantity * sales.price) AS sold 
+FROM     users, 
+         sales, 
+         products 
+WHERE    sales.uid = users.id 
+AND      sales.pid = products.id 
+GROUP BY users.name, 
+         users.id 
+ORDER BY sold DESC, 
+         users.name 
+LIMIT    20 offset (0 +(20 * 0));
+
+Execution time: ~71 ms
+
+CREATE INDEX products_id ON products(id);
+No benefit.
+
+CREATE INDEX sales_pid ON sales(pid);
+No benefit.
+
+CREATE INDEX sales_uid ON sales(uid);
+No benefit.
+
+CREATE INDEX users_id ON users(id);
+No benefit.
+
+-- "Customer Cells TopK"
+SELECT userSale.name, userSale.id, prodSale.name, prodSale.id, SUM(sales.quantity * sales.price) 
+FROM (SELECT users.name, users.id, SUM(sales.quantity * sales.price) AS sold
+	FROM users, sales, products 
+ 	WHERE sales.uid = users.id AND sales.pid = products.id  
+	GROUP BY users.name, users.id 
+	ORDER BY sold DESC, users.name LIMIT 20 OFFSET (0 + (20 * 0))) userSale, 
+		(SELECT products.id, products.name, SUM(sales.price * sales.quantity) AS sold 
+		FROM sales, products 
+		WHERE products.id = sales.pid 
+		GROUP BY products.id, products.name 
+		ORDER BY sold DESC, products.name 
+		LIMIT 10 OFFSET (0 + (10 * 0))) prodSale, sales 
+		WHERE sales.pid = prodSale.id AND sales.uid = userSale.id 
+		GROUP BY userSale.sold, userSale.name, userSale.id, prodSale.name, prodSale.sold, prodSale.id
+		ORDER BY userSale.sold DESC, userSale.name, prodSale.sold DESC, prodSale.name;
+
+Execution time: ~116 ms"
+
+CREATE INDEX products_id ON products(id);
+No benefit.
+CREATE INDEX sales_pid ON sales(pid);
+No benefit.
+CREATE INDEX sales_uid ON sales(uid);
+No benefit.
+CREATE INDEX users_id ON users(id);
+No benefit.
+
+-- "States Header TopK"
+SELECT   states.name, 
+         states.id, 
+         SUM(sales.quantity * sales.price) AS sold 
+FROM     states, 
+         users, 
+         sales, 
+         products 
+WHERE    sales.pid = products.id 
+AND      (sales.uid = users.id AND users.state = states.id) 
+GROUP BY states.name, 
+         states.id 
+ORDER BY sold DESC, 
+         states.name limit 20 offset (0 + (20 * 0));
+
+Execution time: ~63 ms
+
+CREATE INDEX sales_uid ON sales(uid);
+No benefit.
+
+CREATE INDEX users_id ON users(id);
+No benefit.
+
+-- "States Cells TopK"
+SELECT   statesale.name, 
+         statesale.id, 
+         prodsale.name, 
+         prodsale.id, 
+         SUM(sales.quantity * sales.price) 
+FROM     ( 
+                  SELECT   states.name, 
+                           states.id, 
+                           SUM(sales.quantity * sales.price) AS sold 
+                  FROM     states, 
+                           users, 
+                           sales, 
+                           products 
+                  WHERE    sales.pid = products.id 
+                  AND      (sales.uid = users.id AND users.state = states.id) 
+                  GROUP BY states.name, 
+                           states.id 
+                  ORDER BY sold DESC 
+                  LIMIT    20 offset (0 + (20 * 0))) statesale, 
+         ( 
+                  SELECT   products.id, 
+                           products.name, 
+                           sum(sales.price * sales.quantity) AS sold 
+                  FROM     sales, 
+                           products 
+                  WHERE    products.id = sales.pid 
+                  GROUP BY products.id, 
+                           products.name 
+                  ORDER BY sold DESC 
+                  LIMIT    10 offset   (0 + (10 * 0))) prodsale, users, sales 
+WHERE    sales.pid = prodsale.id 
+AND      ( 
+                  sales.uid = users.id 
+         AND      users.state = statesale.id) 
+GROUP BY statesale.sold, 
+         statesale.name, 
+         statesale.id, 
+         prodsale.sold, 
+         prodsale.name, 
+         prodsale.id 
+ORDER BY statesale.sold DESC, 
+         statesale.name, 
+         prodsale.sold DESC, 
+         prodsale.name;
+
+Execution time: ~121 ms
+
+CREATE INDEX products_id ON products(id);
+No benefit.
+
+CREATE INDEX sales_pid ON sales(pid);
+No benefit.
+
+CREATE INDEX sales_uid ON sales(uid);
+No benefit.

@@ -1,0 +1,4 @@
+Our best choice index was sales_id on the sales table with uid.
+It improved the performance time of a couple of our queries.
+
+CREATE INDEX sales_uid ON sales(uid); 
